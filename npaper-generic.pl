@@ -76,11 +76,11 @@ __END__
 
 =head1 NAME
 
-cproc-generic - adds and associates generic child pubs with Newspaper Articles.
+npaper-generic - adds and associates generic child pubs with Newspaper Articles.
 
 =head1 SYNOPSIS
 
-cproc-generic [options]
+npaper-generic [options]
 
   Options:
     -url refers to the URL of the GCIS instance.
@@ -116,7 +116,7 @@ prints a help message and exits
 
 =head1 DESCRIPTION
 
-B<cproc-generic.pl> creates child publications of class 'generic' for reference types of
+B<npaper-generic.pl> creates child publications of class 'generic' for reference types of
 class 'Newspaper Article.'  The program is designed to allow users to select
 how many new child pubs to create, and displays the title and UUID pertaining to
 each new child pub entry generated.
