@@ -205,21 +205,17 @@ the allowed values are:
 
 the URL of the GCIS instance (default is the dev instance)
 
-
 =item B<-max_update>
 
 the maximum number of entries to update (default is 1 entry)
-
 
 =item B<-dry_run>
 
 a flag that indicates a dry run (default is to update the instance)
 
-
 =item B<-help>
 
 prints a help message and exits
-
 
 =back
 
