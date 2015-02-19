@@ -24,7 +24,7 @@ my %types = (
 $| = 1;
 my $type = "cproc";
 my $url   = "https://data.gcis-dev-front.joss.ucar.edu";
-my $max_update = 1;
+my $max_update = 100;
 my $dry_run = 0;
 my $help = 0;
  my $result = GetOptions ("type=s" => \$type, 
