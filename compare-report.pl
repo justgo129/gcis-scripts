@@ -4,9 +4,9 @@ use Getopt::Long qw/GetOptions/;
 use Pod::Usage qw/pod2usage/;
 
 use Gcis::Client;
+use Gcis::Exim;
 use YAML;
 use Data::Dumper;
-use exim;
 
 use strict;
 use v5.14;
@@ -28,12 +28,12 @@ pod2usage(-msg => "missing url", -verbose => 1) unless $url;
 
 sub main {
     my $s = shift;
-    my $a = exim->new();
-    my $b = exim->new($url);
+    my $a = Exim->new();
+    my $b = Exim->new($url);
     $b->not_all if $not_all;
-    my $c = exim->new();
+    my $c = Exim->new();
     my $map;
-    my $map = $map_file ? exim->new() : '';
+    my $map = $map_file ? Exim->new() : '';
 
     my $logger = Mojo::Log->new($log_file eq '-' ? () : (path => $log_file));
     $logger->level($log_level);
@@ -43,14 +43,13 @@ sub main {
     $a->load($input);
     if ($map) {
         $map->load($map_file);
-        $map->set_up_map($a->{base}[0], $url);
+        $map->set_up_map($a, $url);
     }
 
-    $b->get_full_report($a->{report}[0]->{uri});
-    $b->{base}[0] = $url;
+    $b->get_full_report($a->{report_uri});
 
-    my @items = qw (
-        report
+    for (qw (
+        reports
         chapters
         figures
         images
@@ -65,9 +64,8 @@ sub main {
         organizations
         contributors
         files
-        );
-    for my $item (@items) {
-        $c->compare($item, $a, $b, $map);
+        )) {
+        $c->compare($_, $a, $b, $map);
     }
 
     $c->dump;
