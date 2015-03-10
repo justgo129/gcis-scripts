@@ -4,9 +4,9 @@ use Getopt::Long qw/GetOptions/;
 use Pod::Usage qw/pod2usage/;
 
 use Gcis::Client;
+use Gcis::Exim;
 use YAML::XS;
 use Data::Dumper;
-use exim;
 
 use strict;
 use v5.14;
@@ -27,7 +27,7 @@ pod2usage(-msg => "missing url", -verbose => 1) unless $url;
 
 sub main {
     my $s = shift;
-    my $e = exim->new($url);
+    my $e = Exim->new($url);
     $e->not_all if $not_all;
 
     my $logger = Mojo::Log->new($log_file eq '-' ? () : (path => $log_file));
