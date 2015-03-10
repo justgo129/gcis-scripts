@@ -3,16 +3,16 @@
 use v5.20.1;
 use Mojo::UserAgent;
 use Gcis::Client;
+use Gcis::Exim;
 use YAML::XS qw/Dump/;
 use Text::Diff qw/diff/;
 use Data::Dumper;
-use exim;
 
 my $src_url = q[http://data-stage.globalchange.gov];
 my $dst_url = q[https://data.gcis-dev-front.joss.ucar.edu];
 my $what = $ARGV[0] || q[person];
 my $verbose = 1;
-my $dry_run = 0;
+my $dry_run = 1;
 my $max_change = 10;
 my $do_all = 1;
 
@@ -38,7 +38,7 @@ my $src = Gcis::Client->new(url => $src_url);
 
 my $dst = $dry_run ? Gcis::Client->new(    url => $dst_url)
                    : Gcis::Client->connect(url => $dst_url);
-my $comp = exim->new;
+my $comp = Exim->new;
 
 say "dry_run" if $dry_run;
 
@@ -153,6 +153,15 @@ sub dump_diff {
     return 0;
 }
 
+sub name_key {
+    my $s = shift;
+
+    my $first_initial = substr $s->{first_name}, 0, 1;
+    my $k = uc "$s->{last_name}_$first_initial";
+
+    return $k;
+}
+
 say "src : ".$src->url;
 say "dst : ".$dst->url;
 say "resource : $what";
@@ -209,9 +218,9 @@ if ($verbose) {
 my $is_person = $what eq 'person';
 my %dst_names;
 if ($is_person) {
-    map $dst_names{$_->{last_name}}++, @dst;
+    map {$dst_names{name_key($_)}++} @dst;
     if ($verbose) {
-        say "last name duplicates in $dst_url: ";
+        say "name duplicates in $dst_url: ";
         for my $name (keys %dst_names) {
              say " $name : $dst_names{$name}" if ($dst_names{$name} > 1);
         }
@@ -230,7 +239,7 @@ for my $src_uri (@only_in_src) {
     my $name;
     my $obj = $src{$src_uri};
     if ($is_person) {
-        my $name = $obj->{last_name};
+        $name = name_key($obj);
         if ($dst_names{$name}) {
             say " same last name in dst : $name, $src_uri";
             next;
