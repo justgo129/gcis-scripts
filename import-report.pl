@@ -21,6 +21,7 @@ GetOptions(
   'log_level=s' => \(my $log_level = "info"),
   'input=s'     => \(my $input),
   'map_file=s'  => \(my $map_file),
+  'local=s'     => \(my $local = '.'),
   'not_all'     => \(my $not_all),
   'dry_run'     => \(my $dry_run),
 );
@@ -36,6 +37,7 @@ sub main {
     my $b = $dry_run ? Exim->new($url)
                      : Exim->new($url, 'update');
     $b->not_all if $not_all;
+    $b->local($local);
     my $map;
     my $map = $map_file ? Exim->new() : '';
 
@@ -167,11 +169,14 @@ import-report.pl -- import report from source to destination
 =head1 DESCRIPTION
 
 import-report.pl imports an entire report with all of the dependent 
-information.  The report source is a yaml file (see export-report.txt).
+information.  The report source is a yaml file (see export-report.pl).
 The destination is a gcis instance.
 
 If a mapping file is provided, the import is done after the redirect 
 is done.
+
+Any new files associated with the report must already be downloaded 
+in a local directory.
 
 =head1 SYNOPSIS
 
@@ -198,6 +203,10 @@ Input (source) report (yaml file, defaults to STDIN).
 =item B<--map_File>
 
 Input mapping file (yaml file, defaults to NULL).
+
+=item B<--local>
+
+Directory where the report files are located (defaults to ".").  See get-files.pl.
 
 =item B<--not_all>
 

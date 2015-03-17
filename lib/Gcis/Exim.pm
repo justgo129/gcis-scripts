@@ -83,6 +83,7 @@ sub _update_item_href {
     my $subtype = shift;
 
     my $base = quotemeta $s->{base};
+    $v->{href} =~ s[//.*:.*@][//];
     $v->{href} =~ s/^$base/base:/;
     delete $v->{href} if !$v->{href}  ||  $v->{href} =~ /^base:/;
     return 0 unless $subtype;
@@ -149,8 +150,8 @@ sub compare_hash {
             next;
         }
 
-        if ($a->{$k} ne $b->{$k}) { # encode('utf8',$b->{$k})) {
-            $v{$k} = 'diff';
+        if ($a->{$k} ne $b->{$k}) { 
+            $v{$k} = {diff => {src => $a->{$k}, dst => $b->{$k}}};
         } else {
             $v{$k} = 'same' if $compare_say_same;
         }
@@ -195,8 +196,16 @@ sub _compare_array {
     exists $id_list{$array} or die "unknown array type : $array";
     my $id = $id_list{$array};
     if ($id) {
-        my %a_objs = map {$_->{$id} => $_} @{ $a };
-        my %b_objs = map {$_->{$id} => $_} @{ $b };
+        my %a_objs;
+        my %b_objs;
+        if ($array ne 'publication_maps') {
+          %a_objs = map {$_->{$id} => $_} @{ $a };
+          %b_objs = map {$_->{$id} => $_} @{ $b };
+        } else {
+          %a_objs = map {$_->{$id}."|".$_->{parent_uri}."|".$_->{child_uri} => $_}
+                         @{ $a };
+          %b_objs = map {$_->{$id}."|".$_->{parent_uri}."|".$_->{child_uri} => $_}                         @{ $b };
+        }
 
         my $m = 0;
         for (keys %a_objs) {
@@ -283,6 +292,7 @@ sub new {
     }
     $s->{base} = $base;
     $s->{all} = '?all=1';
+    $s->{local} = '.';
     $s->{access} = $access;
 
     bless $s, $class;
@@ -292,6 +302,12 @@ sub new {
 sub not_all {
     my $s = shift;
     $s->{all} = '';
+    return 0;
+}
+
+sub local {
+    my $s = shift;
+    $s->{local} = shift;
     return 0;
 }
 
@@ -1072,6 +1088,33 @@ sub import_dataset {
     return 0;
 }
 
+sub _close_person {
+    my $s = shift;
+    my $src = shift;
+
+    my $last_src = lc $src->{last_name};
+    my $close = $s->{gcis}->get("/autocomplete?q=$last_src&type=person");
+    # my $close = $s->{gcis}->get('/autocomplete',
+    #                    { q =>$name, items => 15, type => 'person' } );
+    return 0 unless @$close;
+
+    my $first_initial_src = lc substr $src->{first_name}, 0, 1;
+
+    for (@$close) {
+        my ($item, $id, $first_dst, $last_dst) = split;
+        next unless $item eq '[person]';
+        next unless (lc $last_dst) eq $last_src;
+        my $first_initial_dst = lc substr $first_dst, 0, 1;
+        next unless $first_initial_src eq $first_initial_dst;
+        $id =~ s/\{|\}//g;
+        say " person(s) with same last name and first initial found";
+        say "   id : $id, last name : $last_dst, first : $first_dst";
+        die "will not automatically add new person with close name";
+    }
+
+    return 0;
+}
+
 sub import_person {
     my $s = shift;
     my $src_orig = shift;
@@ -1091,14 +1134,7 @@ sub import_person {
         return 0;
     }
 
-    my $name = lc $src->{last_name};
-    my $close = $s->{gcis}->get("/autocomplete?q=$name&type=person");
-    # my $close = $s->{gcis}->get('/autocomplete', 
-    #                    { q =>$name, items => 15, type => 'person' } );
-    if (@$close) {
-        say " person(s) with same last name found :\n".Dumper($close);
-        die "will not automatically add new person with same last name";
-    };
+    $s->_close_person($src);
 
     if ($s->{access} ne 'update') {
         say " would import item : $uri";
@@ -1221,7 +1257,7 @@ sub import_files {
 
         my $src_file = $all_src->{files}->{$_};
         my $f = ($src_file->{file} =~ s[.*/][]r);
-        my $f1 = "./$f";
+        my $f1 = "$s->{local}/$f";
         -f $f1 or die "file does not exist : $f1";
         my $u = "$uri/$f";
         $u =~ s[/$type/][/$type/files/];
