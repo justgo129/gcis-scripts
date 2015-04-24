@@ -1,0 +1,122 @@
+#!/usr/bin/env perl
+
+=head1 NAME
+
+    ingest-findings -- Ingest yaml for findings though the GCIS API.
+
+=head1 OPTIONS
+
+=head2 B<url>
+
+    GCIS url, e.g. http://data-stage.globalchange.gov
+
+=head2 B<report>
+
+    report, e.g. nca3
+
+=head2 B<yaml_file>
+
+    File with YAML to upload.
+
+=head2 B<chapter_number>
+
+    Chapter number.
+
+=head2 B<dry_run>, B<n>
+
+    Dry run.
+
+=head2 B<delete_extras>
+
+    Delete extra findings in the chapter? (default: yes)
+
+=head2 EXAMPLES
+
+    # ingest findings for chapter 5 to local server
+   ./ingest-findings -u http://localhost:3000 -c 5 -r nca3
+
+=cut
+
+use YAML::XS qw/Load Dump/;
+use Path::Class qw/file/;
+use Data::Dumper;
+use Getopt::Long qw/GetOptions/;
+use Pod::Usage qw/pod2usage/;
+use Encode;
+
+use Gcis::Client;
+
+use v5.14;
+
+GetOptions(
+  'url=s'            => \(my $url),
+  'report=s'         => \(my $report),
+  'yaml_file=s'      => \(my $yaml_file),
+  'chapter_number=s' => \(my $chapter_number),
+  'dry_run|n'        => \(my $dry_run),
+  'delete_extras=s'   => \(my $delete_extras = 1),
+  'help'             => sub { pod2usage(verbose => 1 ) },
+) or die pod2usage("invalid options.");
+
+$delete_extras = 0 if $delete_extras =~ /^n/i;
+
+die "missing chapter number" unless $chapter_number;
+
+$yaml_file //= sprintf("./findings/ch%02d.yaml",$chapter_number);
+
+die "missing report" unless $report;
+die "missing yaml_file" unless $yaml_file;
+die "missing url" unless $url;
+
+my $c = Gcis::Client->new;
+$c->url($url);
+$c->find_credentials->login;
+
+my $new = Load(scalar (file($yaml_file)->slurp ));
+
+my %chmap = $c->get_chapter_map($report);
+my $chapter = $chmap{$chapter_number};
+my $old = $c->get("/report/$report/chapter/$chapter/finding?all=1") or die $c->error;
+
+my %to_delete;
+for my $old (@$old) {
+    my $existing_uri = "/report/$report/chapter/$old->{chapter_identifier}/finding/$old->{identifier}";
+    $to_delete{$existing_uri} = 1;
+}
+
+my $count = 0;
+for my $new (@$new) {
+    die "invalid field, are these figures instead of findings?" if defined($new->{caption});
+    my ($match) = grep { $_->{ordinal}==$new->{ordinal} } @$old;
+    if ($match) {
+        $new->{identifier} = $match->{identifier};
+    } else {
+        say "could not find finding $new->{ordinal}, assigning random identifier";
+        $new->{identifier} = 'fixme_'.int((rand 1)*1000);
+    }
+    delete $new->{refs};
+
+    my $existing_uri = "/report/$report/chapter/$chapter/finding/$new->{identifier}";
+    delete $to_delete{$existing_uri};
+    my $existing = $c->get($existing_uri);
+    my $uri = $existing ? $existing_uri : "/report/$report/finding";
+
+    if ($dry_run) {
+        say "Not sending finding $new->{ordinal} to $uri ($new->{identifier})";
+        next;
+    }
+ 
+    $c->post( $uri =>
+      {
+        chapter_identifier => $chapter,
+        report_identifier => $report,
+        %$new,
+      }
+    );
+}
+
+for my $uri (keys %to_delete) {
+    say $dry_run ? "Not deleting $uri" : "Deleting $uri";
+    next if $dry_run;
+    $c->delete($uri) or die "could not delete $uri";
+}
