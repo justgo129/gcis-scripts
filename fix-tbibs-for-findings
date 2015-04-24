@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+
+=head1 NAME
+
+    fix-tbibs-for-findings -- Ensure references associated with findings match tbib tags.
+
+=head1 OPTIONS
+
+=head2 B<url>
+
+    GCIS url, e.g. http://data-stage.globalchange.gov
+
+=head2 B<report>
+
+    report, e.g. nca3
+
+=head2 B<chapter_number>
+
+    Chapter number.
+
+=head2 B<dry_run>, B<n>
+
+    Dry run.
+
+=head1 EXAMPLES
+
+    # fix refs on local gcis instance
+    fix-tbibs-for-findings -u http://localhost:3000 -r nca3 -c 5
+
+=cut
+
+use Getopt::Long qw/GetOptions/;
+use Data::Dumper;
+use Encode;
+use Pod::Usage;
+no warnings 'uninitialized';
+
+use Gcis::Client;
+
+use v5.14;
+
+GetOptions(
+  'url=s'            => \(my $url),
+  'report=s'         => \(my $report),
+  'chapter_number=s' => \(my $chapter_number),
+  'dry_run|n'        => \(my $dry_run),
+  'help'             => sub { pod2usage(verbose => 1 ) },
+) or die pod2usage("invalid options.");
+
+die "missing url" unless $url;
+die "missing report" unless $report;
+die "missing chapter number" unless $chapter_number;
+
+my $c = Gcis::Client->new;
+
+$c->url($url);
+$c->find_credentials->login;
+
+my @findings = $c->findings(report => $report, chapter_number => $chapter_number);
+
+my @fields = qw/statement uncertainties evidence confidence process/;
+
+for my $f (@findings) {
+    my $finding_uri = $f->{uri} or die "missing uri";
+    my $finding = $c->get_form($f);
+
+    my @uuids;
+    say "finding $finding->{identifier}";
+    for my $field (@fields) {
+        local $_ = $finding->{$field} or next;
+        push @uuids, $_ =~ m[<tbib>([a-z0-9-]+)</tbib>]g;
+    }
+
+    my $finding_with_refs = $c->get($finding_uri);
+    my %extra = map {
+        # /reference/uuid => 1
+        $_->{uri} => 1
+    } @{ $finding_with_refs->{references} };
+
+    say "# uuids in text : ".@uuids;
+    # Associate references with this finding.
+    for my $refid (@uuids) {
+        delete $extra{"/reference/$refid"};
+        my $ref = $c->get("/reference/$refid");
+        next if grep { $finding_uri eq $_ } @{ $ref->{sub_publication_uris} };
+        if ($dry_run) {
+            say "ready to post to /reference/rel/$refid";
+        } else {
+            say "$finding_uri -> /reference/$refid";
+            $c->post("/reference/rel/$refid.json", { add_subpubref_uri => $finding_uri }) or warn $c->error;
+        }
+    }
+
+    for my $extra (keys %extra) {
+        say "extra : $extra";
+        my $uri = $extra;
+        $uri =~ s[reference/][reference/rel/];
+        if ($dry_run) {
+            say "ready to post to $uri to remove $finding_uri";
+        } else {
+            $c->post("$uri.json", { delete_subpub => $finding_uri }) or warn $c->error;
+        }
+    }
+}
+
+ 
+
