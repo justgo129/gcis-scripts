@@ -11,8 +11,6 @@ use Data::Dumper;
 use strict;
 use v5.14;
 
-my $max_import = 30;
-
 # local $YAML::Indent = 2;
 
 GetOptions(
@@ -21,17 +19,30 @@ GetOptions(
   'log_level=s' => \(my $log_level = "info"),
   'input=s'     => \(my $input),
   'map_file=s'  => \(my $map_file),
+  'max_import=i' => \(my $max_import = 100), 
   'local=s'     => \(my $local = '.'),
   'not_all'     => \(my $not_all),
-  'dry_run'     => \(my $dry_run),
-);
+  'dry_run|n'   => \(my $dry_run),
+  'help|?'	=> sub { pod2usage(verbose => 2) },
+) or die pod2usage(verbose => 1);
 
-pod2usage(-msg => "missing url", -verbose => 1) unless $url;
+pod2usage(msg => "missing url", verbose => 1) unless $url;
 
 my $n = 0;
 &main;
 
 sub main {
+    say " importing a report";
+    say "     url : $url";
+    say "     log file : $log_file";
+    say "     log level : $log_level";
+    say "     input : $input" if $input;
+    say "     map file : $map_file" if $map_file;
+    say "     max import : $max_import";
+    say "     local : $local";
+    say "     not all" if $not_all;
+    say "     dry run" if $dry_run;
+
     my $s = shift;
     my $a = Exim->new();
     my $b = $dry_run ? Exim->new($url)
@@ -51,13 +62,14 @@ sub main {
         $map->load($map_file);
         $map->set_up_map($a, $url);
     }
+    $b->{report_uri} = $a->{report_uri};
 
 #   main steps:
 # 
 #   1. import/map organizations/people
 #   2. import/map journals/publications (except actual report)
 #   3. import/map datasets
-#   4. import/link report, chapters, figures, images, tables, 
+#   4. import/link report, chapters, figures, images, tables, arrrays, 
 #                  findings, references, activities
 #   5. import/link files
 #   6. link contributors, parents
@@ -78,6 +90,7 @@ sub main {
         chapters
         images
         figures
+        arrays
         tables
         findings
         references
@@ -90,6 +103,7 @@ sub main {
         figures
         images
         tables
+        arrays
         findings
         publications
         journals
@@ -172,25 +186,27 @@ import-report.pl imports an entire report with all of the dependent
 information.  The report source is a yaml file (see export-report.pl).
 The destination is a gcis instance.
 
-If a mapping file is provided, the import is done after the redirect 
-is done.
+If a mapping file is provided, the import is done after the mapping 
+from source to destination is done.
 
 Any new files associated with the report must already be downloaded 
 in a local directory.
 
 =head1 SYNOPSIS
 
-./compare-report.pl [OPTIONS]
+./import-report.pl [OPTIONS]
 
 =head1 OPTIONS
 
+=over
+
 =item B<--url>
 
-GCIS URL.
+GCIS url, e.g. http://data-stage.globalchange.gov
 
 =item B<--log_file>
 
-Log file (/tmp/gcis-import.log).
+Log file (/tmp/gcis-import.log)
 
 =item B<--log_level>
 
@@ -198,27 +214,34 @@ Log level (see Mojo::Log)
 
 =item B<--input>
 
-Input (source) report (yaml file, defaults to STDIN).
+Input (source) report (yaml file, defaults to STDIN)
 
 =item B<--map_File>
 
-Input mapping file (yaml file, defaults to NULL).
+Input mapping file (yaml file, defaults to NULL)
+
+=item B<--max_import>
+
+Maximum number of items to import (defaults to 100)
 
 =item B<--local>
 
-Directory where the report files are located (defaults to ".").  See get-files.pl.
+Directory where the report files are located (defaults to ".", see get-files.pl)
 
 =item B<--not_all>
 
-Set to only export first set of items (opposite of "?all=1").
+Set to only export first set of items (opposite of "?all=1")
 
-=item B<--dry_run>
+=item B<--dry_run or --n>
 
-Set to perform dry run (no update).
+Set to perform dry run (no update)
+
+=back
 
 =head1 EXAMPLES
 
+    # import a report
     ./import-report.pl --url=http://datas-dev-front.joss.ucar.edu
-         --file=report.txt
+                       --input=report.yaml
 
 =cut

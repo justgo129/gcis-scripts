@@ -11,8 +11,6 @@ use Data::Dumper;
 use strict;
 use v5.14;
 
-my $max_import = 30;
-
 # local $YAML::Indent = 2;
 
 GetOptions(
@@ -20,21 +18,27 @@ GetOptions(
   'log_level=s' => \(my $log_level = "info"),
   'input=s'     => \(my $input),
   'local=s'     => \(my $local = '.'),
-  'dry_run'     => \(my $dry_run),
-);
-
-pod2usage(-msg => "missing input", -verbose => 1) unless $input;
+  'dry_run|n'   => \(my $dry_run),
+  'help|?'      => sub { pod2usage(verbose => 2) },
+) or die pod2usage(verbose => 1);
 
 my $n = 0;
 &main;
 
 sub main {
 
+    say " importing files for a report";
+    say "     log file : $log_file";
+    say "     log level : $log_level";
+    say "     input : $input" if $input;
+    say "     local : $local";
+    say "     dry run" if $dry_run;
+
     my $a = Exim->new("no url");
-    say " input : $input";
     $a->load($input);
 
     my $b = Mojo::UserAgent->new;
+    $b = $b->max_redirects(3);
 
     my $base = $a->{base};
     say " base : $base";
@@ -49,7 +53,11 @@ sub main {
         my $url = $obj->{url};
         my $name = ($obj->{file} =~ s[.*/][]r);
         my $loc = "$local/$name";
-        my $org = "$base$url";
+        if ($url =~ m[^http:]) {
+            say " warning - external file not read : $url";
+            next;
+        }
+        my $org =  "$base$url";
         if (-f $loc) {
             say " warning - file already exists : $loc";
             next;
@@ -83,7 +91,7 @@ instance.  The report source is a yaml file (see export-report.pl).  The gcis
 instance is the one specified in the report.  The files are stored in a local
 directory.
 
-If the file already exists, it is skipped.
+If the file already exists in the local directory, it is skipped.
 
 =head1 SYNOPSIS
 
@@ -91,9 +99,11 @@ If the file already exists, it is skipped.
 
 =head1 OPTIONS
 
+=over
+
 =item B<--log_file>
 
-Log file (/tmp/gcis-get-files.log).
+Log file (/tmp/gcis-get-files.log)
 
 =item B<--log_level>
 
@@ -101,18 +111,20 @@ Log level (see Mojo::Log)
 
 =item B<--input>
 
-Input (source) report (yaml file, defaults to STDIN).
+Input (source) report (yaml file, defaults to STDIN)
 
 =item B<--local>
 
-Directory to store file (defaults to ".").
+Directory to store file (defaults to ".")
 
 =item B<--dry_run>
 
-Set to perform dry run (no actual download).
+Set to perform dry run (no actual download)
+
+=back
 
 =head1 EXAMPLES
 
-    ./get-files.pl --file=report.txt --local=./tmp
+./get-files.pl --file=report.yaml --local=./tmp
 
 =cut
