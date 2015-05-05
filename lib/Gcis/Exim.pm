@@ -20,6 +20,7 @@ my @item_list = qw(
     figures
     images
     tables
+    arrays
     findings
     references
     publications
@@ -36,6 +37,7 @@ my @has_parents = qw(
     figures
     images
     tables
+    arrays
     findings
     publications
     journals
@@ -55,6 +57,7 @@ my @has_relatives = (qw(
     figure
     image
     table
+    array
     finding
     journal
     dataset
@@ -175,6 +178,7 @@ sub _compare_array {
         chapters => 'uri',
         figures => 'uri',
         tables => 'uri',
+        arrays => 'uri',
         findings => 'uri',
         references => 'uri',
         files => 'uri',
@@ -183,14 +187,18 @@ sub _compare_array {
         chapter_uris => '',
         figure_uris => '',
         image_uris => '',
+        table_uris => '',
+        array_uris => '',
         finding_uris => '',
         file_uris => '',
         contributor_uris => '',
         publication_maps => 'activity_identifier',
-        parents => 'activity_uri',
+        parents => 'label',
         contributors => 'id',
         sub_publication_uris => '',
         kindred_figures => '',
+        rows => '',
+        instrument_measurements => 'instrument_identifier', 
     );
 
     exists $id_list{$array} or die "unknown array type : $array";
@@ -229,6 +237,37 @@ sub _compare_array {
             map {$v[$m]->{$_} = $comp->{$_}} keys %$comp;
             $m++;
         }
+    } elsif ($array eq 'rows') {
+        my $same = 1;
+        if ($n_a != $n_b) {
+            $same = 0;
+            $v[0] = 'different number of rows in arrays';
+        } else {
+            my $m = 0;
+            for my $i (0..($n_a - 1)) {
+                my $av = @{ $a }[$i];
+                my $bv = @{ $b }[$i];
+                my $nv_a = @$av;
+                my $nv_b = @$bv;
+                if ($nv_a != $nv_b) {
+                    $v[$m]->{i} = $i;
+                    $v[$m]->{reason} = 'different number of values';
+                    $same = 0;
+                    next;
+                }
+                for my $j (0..($nv_a - 1)) {
+                    # say " v[$i][$j]  av : @$av[$j]  bv : @$bv[$j]";
+                    next if @$av[$j] == @$bv[$j];
+                    $v[$m]->{item} = "$i, $j";
+                    $v[$m]->{reason} = 'different values';
+                    $v[$m]->{src} = @$av[$j];
+                    $v[$m]->{dst} = @$bv[$j];
+                    $same = 0;
+                    last;
+                }
+            }
+        }
+        $v[0] = 'same' if ($same  &&  $compare_say_same);
     } else {
         my %vals;
         for (0..($n_a - 1)) {
@@ -273,6 +312,26 @@ sub _name_key {
     my $n = uc "$p->{last_name}_$first_initial";
 
     return $n;
+}
+
+sub _fix_uri {
+    my $s = shift;
+    my $u = shift;
+
+    return 0 unless $$u =~ m/%/;
+
+    my %list = (
+        '%28' => '(', '%29' => ')',
+        '%3A' => ':', '%3B' => ';',
+        '%3C' => '<', '%3E' => '>',
+        '%5B' => '[', '%5D' => ']',
+        );
+    for (keys %list) {
+        next unless $$u =~ m/$_/;
+        $$u =~ s/$_/$list{$_}/g;
+    }
+
+    return 0;
 }
 
 sub new {
@@ -352,6 +411,7 @@ sub get_full_report {
     $s->get_figures;
     $s->get_images;
     $s->get_tables;
+    $s->get_arrays;
     $s->get_findings;
     $s->get_references;
     $s->get_publications;
@@ -366,6 +426,7 @@ sub get_full_report {
         figures
         images
         tables
+        arrays
         findings
         publications
         journals
@@ -381,6 +442,7 @@ sub get_full_report {
         figures
         images
         tables
+        arrays
         findings
         publications
         journals
@@ -513,6 +575,26 @@ sub get_tables {
     return 0;
 }
 
+sub get_arrays {
+    my $s = shift;
+
+    for (keys %{ $s->{tables} }) {
+        my $tab = $s->{tables}->{$_};
+        my $arrays = $tab->{arrays};
+        my $n = 0;
+        for my $arr (@$arrays) {
+            my $uri = "/array/$arr->{identifier}";
+            my $array = $s->get($uri) or die "no array : $uri";
+            $tab->{array_uris}[$n++] = $uri;
+            delete $array->{tables};
+            $s->{arrays}->{$uri} = $array;
+        }
+        delete $tab->{arrays};
+    }
+
+    return 0;
+}
+
 sub get_findings {
     my $s = shift;
 
@@ -567,8 +649,32 @@ sub get_publications {
     for (keys %{ $s->{references} }) {
         my $ref = $s->{references}->{$_};
         if (my $uri = $ref->{child_publication_uri}) {
-          my $pub = $s->get($uri) or die "no publication : $uri";
-          $s->{publications}->{$uri} = $pub;
+            next if $uri =~ m[^$s->{report_uri}];
+
+            my $pub = $s->get($uri) or die "no publication : $uri";
+            $s->{publications}->{$uri} = $pub;
+
+            my ($type) = ($uri =~ /^\/(.*?)\//);
+            next unless $type eq 'report';
+            $pub->{parents} = [];
+            $pub->{contributors} = [];
+            my @v = split '/', $uri;
+            my $sub_type = $v[3] if scalar @v == 5;
+            if (!$sub_type) {
+                for (qw(figure finding table)) {
+                    delete $pub->{"report_".$_."s"};
+                    $pub->{$_."_uris"} = [];
+                }
+                $pub->{chapters} = [];
+                next;
+            } 
+            die " invalid subtype (of report) : $sub_type" 
+                unless $sub_type eq 'chapter';
+            for (qw(figure finding table)) {
+                delete $pub->{$_."s"};
+                $pub->{$_."_uris"} = [];
+            }
+
         }
     }
 
@@ -612,10 +718,13 @@ sub get_parents {
                 }
                 my $pub = $s->get($par->{url}) or die "parent url not uri";
                 if ($parent_type eq 'report') {
-                   delete $pub->{$_} for qw(report_figures report_findings
-                                            report_tables);
+                    delete $pub->{$_} for qw(report_figures report_findings
+                                             report_tables);
+                } elsif ($parent_type eq 'dataset') {
+                    delete $pub->{$_} for qw(aliases);
                 }
-                $s->{$p_type}->{$pub->{uri}} = $pub;
+                $s->{$p_type}->{$pub->{uri}} = $pub unless
+                    $pub->{uri} =~ m[^$s->{report_uri}];
             }
             my $act_uri = $par->{activity_uri} or next;
             my $activity = $s->get($act_uri) or 
@@ -800,13 +909,14 @@ sub import_figure {
         return 0;
     }
     say " importing item : $uri";
-    my $image_uris = $src->{image_uris};
     delete $src->{$_} for ('uri', @ignore_src_items);
     my $report_uri = "/report/$src->{report_identifier}";
     my $chapter_uri = $src->{chapter_identifier};
     $chapter_uri = "/chapter/$chapter_uri" if $chapter_uri;
     $s->post("$report_uri$chapter_uri/figure", $src) or 
         die "unable to import : $uri";
+
+    my $image_uris = $src_orig->{image_uris};
     return 0 if !$image_uris;
     for (@$image_uris) {
         s/^\/image\///;
@@ -857,11 +967,14 @@ sub import_table {
     my $src = clone($src_orig);
     my $uri = $src->{uri};
 
+    my @ignore_src_items = (@common_ignore_src_items, qw(array_uris));
+    my @ignore_dst_items = (@common_ignore_dst_items, qw(arrays));
+
     my $dst = $s->get($uri);
     if ($dst) {
         $s->_update_item_href($dst);
-        delete $src->{$_} for @common_ignore_src_items;
-        delete $dst->{$_} for (@common_ignore_dst_items, qw(chapter));
+        delete $src->{$_} for @ignore_src_items;
+        delete $dst->{$_} for @ignore_dst_items;
         my $comp = $s->compare_hash($src, $dst);
         say " comp :\n".Dumper($comp) if $comp;
         die "different item already in dst : $uri" if $comp;
@@ -874,14 +987,58 @@ sub import_table {
         return 0;
     }
     say " importing item : $uri";
-    delete $src->{$_} for ('uri', @common_ignore_src_items);
+    delete $src->{$_} for ('uri', @ignore_src_items);
     my $report_uri = "/report/$src->{report_identifier}";
+    say " report_uri : $report_uri";
     my $chapter_uri = $src->{chapter_identifier};
     $chapter_uri = "/chapter/$chapter_uri" if $chapter_uri;
     $s->post("$report_uri$chapter_uri/table", $src) or 
         die "unable to import : $uri";
+
+    my $array_uris = $src_orig->{array_uris};
+    return 0 if !$array_uris;
+    for (@$array_uris) {
+        s/^\/array\///;
+        say " array : $_";
+        my $rel = ($uri =~ s/\/table\//\/table\/rel\//r);
+        $s->post($rel, {add_array_identifier => $_}) or
+            die "unable to add array to figure : $uri";
+    }
     return 0;
 }
+
+sub import_array {
+    my $s = shift;
+    my $src_orig = shift;
+
+    my $src = clone($src_orig);
+    my $uri = $src->{uri};
+
+    my @ignore_src_items = (@common_ignore_src_items, qw(table_uris));
+    my @ignore_dst_items = (@common_ignore_dst_items, qw(tables));
+
+    my $dst = $s->get($uri);
+    if ($dst) {
+        $s->_update_item_href($dst);
+        delete $src->{$_} for @ignore_src_items;
+        delete $dst->{$_} for @ignore_dst_items;
+        my $comp = $s->compare_hash($src, $dst);
+        say " comp :\n".Dumper($comp) if $comp;
+        die "different item already in dst : $uri" if $comp;
+        say " same item already in dst : $uri";
+        return 0;
+    }
+
+    if ($s->{access} ne 'update') {
+        say " would import item : $uri";
+        return 0;
+    }
+    say " importing item : $uri";
+    delete $src->{$_} for ('uri', @ignore_src_items);
+    $s->post("/array", $src) or die "unable to import : $uri";
+    return 0;
+}
+
 sub import_findings {
     my $s = shift;
     my $src_orig = shift;
@@ -923,6 +1080,7 @@ sub import_reference {
     my $uri = $src->{uri};
 
     my $child_pub_uri = $src->{child_publication_uri};
+    $s->_fix_uri(\$child_pub_uri);
     my @ignore_src_items = qw(child_publication_uri);
     my @ignore_dst_items = qw(child_publication_uri child_publication_id
                               publication_id);
@@ -969,11 +1127,33 @@ sub import_publication {
     grep $type eq $_, @publication_types or
         die "invalid publication type : $uri";
 
+    my @ignore_src_items = @common_ignore_src_items;
+    my @ignore_dst_items = @common_ignore_dst_items;
+
+    my $sub_type;
+    if ($type eq 'report') {
+       my @v = split '/', $uri;
+       $sub_type = $v[3] if scalar @v == 5;
+       if (!$sub_type) {
+           @ignore_src_items = (@ignore_src_items, qw(
+               chapters figure_uris finding_uris table_uris));
+           @ignore_dst_items = (@ignore_dst_items, qw(
+               chapters report_figures report_findings report_tables));
+       } elsif ($sub_type eq 'chapter') {
+           @ignore_src_items = (@ignore_src_items, qw(
+               figure_uris finding_uris table_uris));
+           @ignore_dst_items = (@ignore_dst_items, qw(
+               figures findings tables));
+       } else {
+           die " sub type (of differnet report) not supported : $sub_type";
+       }
+    }
+
     my $dst = $s->get($uri);
     if ($dst) {
         $s->_update_item_href($dst);
-        delete $src->{$_} for @common_ignore_src_items;
-        delete $dst->{$_} for @common_ignore_dst_items;
+        delete $src->{$_} for @ignore_src_items;
+        delete $dst->{$_} for @ignore_dst_items;
         my $comp = $s->compare_hash($src, $dst);
         say " comp :\n".Dumper($comp) if $comp;
         die "different item already in dst : $uri" if $comp;
@@ -986,7 +1166,7 @@ sub import_publication {
         return 0;
     }
     say " importing item : $uri";
-    delete $src->{$_} for ('uri', @common_ignore_src_items);
+    delete $src->{$_} for ('uri', @ignore_src_items);
     $s->post("/$type", $src) or die "unable to import : $uri";
     return 0;
 }
@@ -1063,9 +1243,9 @@ sub import_dataset {
     my $uri = $src->{uri};
 
     my @ignore_src_items = (@common_ignore_src_items, 
-                            qw(instrument_measurements));
+                            qw(instrument_measurements aliases));
     my @ignore_dst_items = (@common_ignore_dst_items,
-                            qw(instrument_measurements));
+                            qw(instrument_measurements aliases));
     my $dst = $s->get($uri);
     if ($dst) {
         $s->_update_item_href($dst);
@@ -1185,7 +1365,8 @@ sub link_contributors {
             person_id => ($c->{person_uri} =~ s[^/.*/][]r),
             };
         my $src_id = ($src->{uri} =~ s[^/.*/][]r);
-        $s->post("/$type/contributors/$src_id", $new_con) 
+        my ($pub_type) = ($src->{uri} =~ m[^/(.*)/]);
+        $s->post("/$pub_type/contributors/$src_id", $new_con) 
             or die "unable to link : $src->{uri}";
     }
 
@@ -1233,16 +1414,32 @@ sub import_files {
     return 0 if !$src->{file_uris};
 
     my $uri = $src->{uri};
+    $s->_fix_uri(\$uri);
+
     my %new_file;
     for (@{ $src->{file_uris} }) {
 
         my $src_file = $all_src->{files}->{$_};
         my $dst_file = $s->get($_);
         if ($dst_file) {
-            delete $dst_file->{$_} for qw(href thumbnail thumbnail_href);
+            $s->_update_item_href($dst_file);
+            delete $dst_file->{$_} for qw(thumbnail thumbnail_href);
             my $comp = $s->compare_hash($src_file, $dst_file);
+            say " comp :\n".Dumper($comp) if $comp;
             die "different item already in dst : $uri" if $comp;
             say " same item already in dst : $uri";
+
+            my $res = $s->get($uri) or 
+                die " existing item does not exist : $uri";
+            my $exists = 0;
+            for my $f (@{ $res->{files} }) {
+                next if $_ ne $f->{uri}; 
+                say " link already exists : $uri, $_";
+                $exists = 1;
+                last;
+            }
+            next if $exists;
+
             my $u = $uri;
             $u =~ s[/$type/][/$type/files/];
             if ($s->{access} ne 'update') {
@@ -1308,12 +1505,15 @@ sub import_organization {
     my $src = clone($src_orig);
     my $uri = $src->{uri};
 
+    my @ignore_items = qw(id aliases);
     my $dst = $s->get($uri);
     if ($dst) {
         $s->_update_item_href($dst);
-        delete $dst->{id};
+        delete $src->{$_} for @ignore_items;
+        delete $dst->{$_} for @ignore_items;
         my $comp = $s->compare_hash($src, $dst);
-        die "different item already in dst : $uri" if ($comp);
+        say " comp :\n".Dumper($comp) if $comp;
+        die "different item already in dst : $uri" if $comp;
         say " same item already in dst : $uri";
         return 0;
     }
