@@ -47,18 +47,19 @@ sub combine_author_list($some,$all) {
             push @authors, $p;
         }
         if (@matches==2) {
-            die "too many matches: @matches";
+            warn "too many matches, cannot merge".Dumper(\@matches);
+            return;
         }
     }
 
     return \@authors;
 }
 
-for my $article ($gcis->get("/article", { all => 0 })) {
+for my $article ($gcis->get("/article", { all => 1 })) {    ### Getting--->   done
     my $doi = $article->{doi} or next;
     my $some = get_orcid_authors($doi);
     my $all = get_xref_authors($doi) or die "no authors for $doi";
-    my $merged = combine_author_list($some,$all);
+    my $merged = combine_author_list($some,$all) or next;
     printf "%100s\n",$doi;
     for (@$merged) {
         printf "%-25s %-30s %-30s\n",$_->{orcid},$_->{first_name},$_->{last_name};
