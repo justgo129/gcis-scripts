@@ -46,7 +46,7 @@ sub combine_author_list($some,$all) {
             @authors = grep { $_->{last_name} ne $p->{last_name} } @authors;
             push @authors, $p;
         }
-        if (@matches==2) {
+        if (@matches > 1) {
             warn "too many matches, cannot merge".Dumper(\@matches);
             return;
         }
