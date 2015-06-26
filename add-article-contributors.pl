@@ -12,6 +12,7 @@ binmode(STDOUT, ':encoding(utf8)');
 
 my $all = 1;         # all articles or just the first 20?
 my $just_dump = 0;   # just dump the list or change GCIS?
+my $dry_run = 1;     # no changes
 
 my $url = shift || die 'missing url';
 my $gcis  = Gcis::Client->connect(url => $url);
@@ -85,6 +86,8 @@ sub find_or_create_gcis_person($person) {
 
     # Add more heuristics here
 
+    return if $dry_run;
+
     debug "adding new person $person->{first_name} $person->{last_name}";
     my $new = $gcis->post("/person" => {
             first_name => $person->{first_name},
@@ -99,6 +102,8 @@ sub find_or_create_gcis_person($person) {
 }
 
 sub add_contributor_record($person,$article) {
+    return if $dry_run;
+
     my $uri = $article->{uri};
     $uri =~ s[article][article/contributors];
     $gcis->post( $uri => {
