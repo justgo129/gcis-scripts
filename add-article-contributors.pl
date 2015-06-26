@@ -10,9 +10,11 @@ use experimental 'signatures';
 
 binmode(STDOUT, ':encoding(utf8)');
 
-my $all = 1;         # all articles or just the first 20?
-my $just_dump = 0;   # just dump the list or change GCIS?
-my $dry_run = 1;     # no changes
+my $all     = 1;   # all articles or just the first 20?
+my $dump    = 0;   # dump the list, don't change gcis
+my $dry_run = 1;   # no changes
+
+warn "dry run\n" if $dry_run;
 
 my $url = shift || die 'missing url';
 my $gcis  = Gcis::Client->connect(url => $url);
@@ -101,14 +103,16 @@ sub find_or_create_gcis_person($person) {
     return $new;
 }
 
-sub add_contributor_record($person,$article) {
+sub add_contributor_record($person,$article,$sort_key) {
+    warn "dry run" if $dry_run;
     return if $dry_run;
 
     my $uri = $article->{uri};
     $uri =~ s[article][article/contributors];
     $gcis->post( $uri => {
             person_id => $person->{id},
-            role => 'author'
+            role => 'author',
+            sort_key => $sort_key,
         }) or debug "error posting to $uri: ".$gcis->error;
 }
 
@@ -117,17 +121,19 @@ for my $article ($gcis->get("/article", { all => $all })) {    ### Getting--->  
     my $some = get_orcid_authors($doi);
     my $all = get_xref_authors($doi) or die "no authors for $doi";
     my $merged = combine_author_list($some,$all) or next;
-    if ($just_dump) {
+    if ($dump) {
         printf "%100s\n",$doi;
         for (@$merged) {
             printf "%-25s %-30s %-30s\n",$_->{orcid},$_->{first_name},$_->{last_name};
         }
         next;
     }
+    my $i = 10;
     for my $person (@$merged) {
         my $found = find_or_create_gcis_person($person);
         next unless $found;
-        add_contributor_record($found, $article);
+        add_contributor_record($found, $article, $i);
+        $i += 10;
     }
 }
 
