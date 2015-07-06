@@ -4,6 +4,7 @@ use Gcis::Client;
 use Smart::Comments;
 use Data::Dumper;
 use YAML::XS qw/Dump/;
+use Mojo::Util qw/html_unescape/;
 
 use v5.16;
 use experimental 'signatures';
@@ -33,8 +34,8 @@ sub get_orcid_authors($doi) {
         my $id = $orcid->tx->res->json("/orcid-search-results/orcid-search-result/$_/orcid-profile/orcid-identifier/path");
         my $p = $orcid->tx->res->json("/orcid-search-results/orcid-search-result/$_/orcid-profile/orcid-bio/personal-details");
         push @authors, {
-              last_name  => $p->{'family-name'}{'value'},
-              first_name => $p->{'given-names'}{'value'},
+              last_name  => html_unescape($p->{'family-name'}{'value'}),
+              first_name => html_unescape($p->{'given-names'}{'value'}),
               orcid      => $id,
         };
     }
@@ -45,7 +46,7 @@ sub get_xref_authors($doi) {
     my $r = $xref->get("/$doi");
     my @authors;
     for (@{ $r->{author} } ) {
-        push @authors, { last_name => $_->{family}, first_name => $_->{given} };
+        push @authors, { last_name => html_unescape($_->{family}), first_name => html_unescape($_->{given}) };
     }
     return \@authors;
 }
