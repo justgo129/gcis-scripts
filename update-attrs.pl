@@ -22,7 +22,7 @@ the existing and the update values are the same.
 
 =item B<--url>
 
-GCIS url, e.g. http://data-stage.globalchange.gov
+GCIS url, e.g. https://data-stage.globalchange.gov
 
 =item B<--file>
 
@@ -45,7 +45,7 @@ Set to perform dry run (no actual update)
 
 =head1 EXAMPLES
 
-./update-attrs.pl -u http://data-stage.globalchange.gov < update_list.yaml
+./update-attrs.pl -u http://data-stage.globalchange.gov -f update_list.yaml
 
 Example input file (yaml format):
 
