@@ -62,7 +62,6 @@ use Gcis::Client;
 use YAML::XS;
 use Data::Dumper;
 use Clone::PP qw(clone);
-use Tuba::Util qw(new_uuid);
 
 use strict;
 use v5.14;
@@ -119,6 +118,8 @@ sub load_update {
         'Publication', 'Sub Title', 'Year', 
         'Place Published', 'Publisher',
         'URL', '.reference_type', 'reftype',
+        '.publisher', 'Journal', '.place_published', 
+        '_chapter', '_record_number', 
         'Issue', 'Type of Article', 'DOI',   
         'Department', 'Book Title', '_uuid', 
         'Number of Pages', 'doi', 
@@ -154,13 +155,15 @@ sub update_ref {
     my $update = 0;
     for (keys %{ $u }) {
         next if $_ eq 'uri';
-        if ($u->{$_}) {
+        if (defined $u->{$_}) {
             next if $attrs->{$_} eq $u->{$_};
             $attrs->{$_} = $u->{$_};
             $update = 1;
+            say " updating attr $_" if $verbose;
         } else {
             delete $attrs->{$_};
             $update = 1;
+            say " deleting attr $_" if $verbose;
         }
     }
 
