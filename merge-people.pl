@@ -1,5 +1,4 @@
 #!/usr/bin/env perl
-use lib  "$ENV{HOME}/gcis/gcis-pl-client/lib";
 use Gcis::Client 0.12;
 use List::Util qw/min/;
 use Data::Dumper;
