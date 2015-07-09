@@ -5,19 +5,24 @@ use Smart::Comments;
 use Data::Dumper;
 use YAML::XS qw/Dump/;
 use Mojo::Util qw/html_unescape/;
+use Getopt::Long qw/GetOptions/;
 
 use v5.16;
 use experimental 'signatures';
 
 binmode(STDOUT, ':encoding(utf8)');
 
-my $all     = 1;   # all articles or just the first 20?
-my $dump    = 0;   # dump the list, don't change gcis
-my $dry_run = 1;   # no changes
+GetOptions(
+  'all'       => \(my $all     = 1),    # all articles or just the first 20?
+  'dump'      => \(my $dump    = 0),    # dump the list, don't change gcis
+  'dry_run|n' => \(my $dry_run = 0),    # no changes
+  'url=s'     => \(my $url),
+) or die "bad opts";
 
+die 'missing url' unless $url;
 warn "dry run\n" if $dry_run;
+warn "url : $url\n";
 
-my $url = shift || die 'missing url';
 my $gcis  = Gcis::Client->connect(url => $url);
 my $orcid = Gcis::Client->new->url("http://pub.orcid.org")->accept("application/orcid+json");
 my $xref  = Gcis::Client->new->url("http://dx.doi.org")->accept("application/vnd.citationstyles.csl+json;q=0.5");
@@ -90,6 +95,16 @@ sub find_or_create_gcis_person($person) {
     # Add more heuristics here
 
     return if $dry_run;
+
+    unless ($person->{first_name}) {
+        debug "no first name ".Dumper($person);
+        return;
+    }
+
+    unless ($person->{last_name}) {
+        debug "no last name ".Dumper($person);
+        return;
+    }
 
     debug "adding new person $person->{first_name} $person->{last_name}";
     my $new = $gcis->post("/person" => {
