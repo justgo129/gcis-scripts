@@ -3,6 +3,7 @@ use Gcis::Client 0.12;
 use List::Util qw/min/;
 use Data::Dumper;
 use Smart::Comments;
+use YAML qw/Dump/;
 use v5.16;
 
 no warnings 'uninitialized';
@@ -26,39 +27,36 @@ sub debug($) {
     #say shift;
 }
 
-sub make_key {
-    my $person = shift;
-    my ($first) = $person->{first_name} =~ /^(\w+)/;
-    $first = lc $first;
-    my ($last)  = lc $person->{last_name};
-    return "$last-$first";
+sub match {
+    my ($this,$that) = @_;
+    #say "Matching $this->{last_name} and $that->{last_name}";
+    my ($f1,$l1) = map { lc s/\W//gr; } @$this{qw/first_name last_name/};
+    my ($f2,$l2) = map { lc s/\W//gr; } @$that{qw/first_name last_name/};
+    return 0 unless $l1 eq $l2;
+    #return 0 if veto($this,$that);
+    if (index($f1,$f2) == 0) {
+        #say "Match for $f1 and $f2";
+        return 1;
+    }
+    if (index($f2,$f1) == 0) {
+        #say "Match for $f1 and $f2";
+        return 1;
+    }
+    #say "no dice for $f1 and $f2";
+    return 0;
 }
 
-sub find_key {
-    my $person = shift;
-    my $people = shift;
-    state $index;
-    unless ($index) {
-        for ( @$people ) {
-            my $k = lc $_->{last_name};
-            $index->{ $k } ||= [];
-            push @{ $index->{$k} }, $_;
-        }
+sub make_actions {
+    my @group = @_;
+    my %action;
+    my $save = min map $_->{id}, @group;
+    if (my ($orc) = grep $_->{orcid}, @group) {
+        $save = $orc->{id};
     }
-
-    my @matching_last_names = @{ $index->{ (lc $person->{last_name} ) } };
-    if (@matching_last_names==1) {
-        return make_key($matching_last_names[0]) unless veto($matching_last_names[0], $person);
-    }
-    my $first = $person->{first_name};
-    $first =~ s/\W//g;
-    for (@matching_last_names) {
-        next if veto($_, $person);
-        if ($_->{first_name} =~ /^$first/) {
-            return make_key($_);
-        }
-    }
-    return;
+    my @remove = map $_->{id}, grep { $_->{id} != $save } @group;
+    $action{$save} = 'save';
+    @action{$_} = 'remove' for @remove;
+    return %action;
 }
 
 sub main {
@@ -67,39 +65,36 @@ sub main {
     my @all = $gcis->get("/person", { all => 1});
     say "Count: ".@all;
 
-    my %groups;
-    for my $person (@all) {
-        my $key = find_key($person,\@all) || make_key($person);
-        $groups{$key} //= [];
-        push @{ $groups{$key} }, $person;
-    }
+    @all = sort {
+        ( lc $a->{last_name} cmp lc $b->{last_name} )
+        || (lc $a->{first_name} cmp lc $b->{first_name})
+    } @all;
 
-    say "groups: ".values %groups;
-
-    my $i = 0;
-    for my $key (sort keys %groups) {  ### mergin...[%]        done
-        my $group = $groups{$key};
-        next unless @$group > 1;
-        say "--$i-- ($key)"; $i++;
-        my %action;
-        my $save = min map $_->{id}, @$group;
-        if (my ($orc) = grep $_->{orcid}, @$group) {
-            $save = $orc->{id};
+    my $last = shift @all;
+    my $this = shift @all;
+    my $current_group = [ $last ];
+    my @groups;
+    while (@all) {
+        if (match($this,$last)) {
+            push @$current_group, $this;
+        }  else {
+            push @groups, $current_group if @$current_group > 1;
+            $current_group = [ $this ];
         }
-        my @remove = map $_->{id}, grep { $_->{id} != $save } @$group;
-        $action{$save} = 'save';
-        @action{$_} = 'remove' for @remove;
-
-        for (@$group) {
+        $last = $this;
+        $this = shift @all;
+    }
+    my $i = 1;
+    for (@groups) {
+        my %action = make_actions(@$_);
+        print "$i: \n";
+        $i++;
+        for (@$_) {
             my $link = "$url_to_show/person/$_->{id}";
             say sprintf("%-20s %-20s %22s %20s %20s",@$_{qw[last_name first_name orcid]},$link,$action{$_->{id}});
         }
-        next if $dry_run;
-        for my $person (@remove) {
-            $gcis->delete("/person/$person", { replacement => "/person/$save" } );
-        }
-        last if $limit && $i >= $limit;
     }
+
 }
 
 sub veto { # veto this match
