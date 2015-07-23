@@ -11,7 +11,7 @@ my $dry_run = 1;  # change for a dry run
 my $limit = 0;    # change to limit
 my $url = shift || usage('no url');
 $url =~ /http/ or usage("bad url: $url");
-my $url_to_show = "http://localhost:3000";
+my $url_to_show = "http://data.globalchange.gov"; #localhost:3000";
 
 $|= 1;
 
@@ -77,7 +77,7 @@ sub main {
     say "groups: ".values %groups;
 
     my $i = 0;
-    for my $key (keys %groups) {  ### grouping...[%]        done
+    for my $key (sort keys %groups) {  ### mergin...[%]        done
         my $group = $groups{$key};
         next unless @$group > 1;
         say "--$i-- ($key)"; $i++;
