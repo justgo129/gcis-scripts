@@ -61,10 +61,8 @@ sub pick_one {
     if (my ($orc) = grep $_->{orcid}, @group) {
         $save = $orc->{id};
     }
-    my @remove = map $_->{id}, grep { $_->{id} != $save } @group;
-    $action{$save} = 'save';
-    @action{$_} = 'remove' for @remove;
-    return %action;
+    die "error picking" unless $save;
+    return $save;
 }
 
 sub main {
@@ -94,12 +92,16 @@ sub main {
     }
     my $i = 1;
     for (@groups) {
-        my %action = pick_one(@$_);
+        my $save = pick_one(@$_);
         print "---- $i: \n";
         $i++;
         for (@$_) {
             my $link = "$url_to_show/person/$_->{id}";
-            say sprintf("%-20s %-20s %22s %20s %20s",@$_{qw[last_name first_name orcid]},$link,$action{$_->{id}});
+            my $action = $_->{id} == $save ? "save" : "remove";
+            say sprintf("%-20s %-20s %22s %20s %20s",@$_{qw[last_name first_name orcid]},$link,$action);
+            next if $dry_run;
+            next unless $_->{id} == $save;
+            $gcis->delete("/person/$_->{id}", { replacement => "/person/$save" } );
         }
     }
 
