@@ -8,7 +8,7 @@ use v5.16;
 
 no warnings 'uninitialized';
 
-my $dry_run = 1;  # change for a dry run
+my $dry_run = 0;  # change for a dry run
 my $limit = 0;    # change to limit
 my $url = shift || usage('no url');
 $url =~ /http/ or usage("bad url: $url");
@@ -100,8 +100,8 @@ sub main {
             my $action = $_->{id} == $save ? "save" : "remove";
             say sprintf("%-20s %-20s %22s %20s %20s",@$_{qw[last_name first_name orcid]},$link,$action);
             next if $dry_run;
-            next unless $_->{id} == $save;
-            $gcis->delete("/person/$_->{id}", { replacement => "/person/$save" } );
+            next if $_->{id} == $save;
+            $gcis->delete("/person/$_->{id}", { replacement => "/person/$save" } ) or die $gcis->error."\n".$gcis->tx->res->body;
         }
     }
 
