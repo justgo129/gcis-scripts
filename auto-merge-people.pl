@@ -46,10 +46,18 @@ sub match {
     return 0;
 }
 
-sub make_actions {
+sub pick_one {
     my @group = @_;
     my %action;
+    # 1 orcid, 2 longest first name, 3 first
     my $save = min map $_->{id}, @group;
+    my $longest = length($group[0]->{first_name});
+    for (@group) {
+        if (length($_->{first_name}) > $longest) {
+            $save = $_->{id};
+            $longest = length($_->{first_name});
+        }
+    }
     if (my ($orc) = grep $_->{orcid}, @group) {
         $save = $orc->{id};
     }
@@ -86,8 +94,8 @@ sub main {
     }
     my $i = 1;
     for (@groups) {
-        my %action = make_actions(@$_);
-        print "$i: \n";
+        my %action = pick_one(@$_);
+        print "---- $i: \n";
         $i++;
         for (@$_) {
             my $link = "$url_to_show/person/$_->{id}";
