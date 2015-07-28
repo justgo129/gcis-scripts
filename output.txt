@@ -1,0 +1,49 @@
+ type : earticle, Electronic Article
+ url https://data-stage.globalchange.gov
+ max update : 100
+ dry run
+ search : https://data-stage.globalchange.gov/reference.json?all=1
+ n refs : 3395
+updating title : A Message from the Public Information Office, uri : /reference/1fe92a0b-6ed4-4697-bba3-19432b434d88
+would have updated this reference
+updating title : Extreme high tides expected along RI coast; grab your camera, uri : /reference/28834802-79c8-4e06-9858-c22fc4a0b218
+would have updated this reference
+updating title : Rising Waters Threaten the Coast Of North Carolina, uri : /reference/2bf7aae8-b25f-423e-939d-7ee97dba39ea
+would have updated this reference
+updating title : Climate Abyss: About the lack of warming…, uri : /reference/42706a4a-03d5-4897-91bc-27116c544731
+would have updated this reference
+updating title : Rain cuts early volume, delays summer harvest, uri : /reference/45b0c685-3fdb-4a13-9cb3-b3bf69249694
+would have updated this reference
+updating title : Port Authority Updates Conditions at Transportation Facilities. Press Release Number: 174-2012, uri : /reference/4a3bd28c-bd11-4819-a587-fead620349bb
+would have updated this reference
+updating title : Sea Level Rise, One More Frontier For Climate Dialogue Controversy, uri : /reference/54923781-b746-4f6e-8fac-5e1c3a141dd9
+would have updated this reference
+updating title : Climate Change Scenario Planning for Cape Cod: A Collaborative Exercise in GeoDesign, uri : /reference/66866ae6-3b8b-4c09-b564-2ce96da023e6
+would have updated this reference
+updating title : Spring breakup and ice-jam flooding in Alaska, uri : /reference/6ca055db-9671-4dbc-9d65-aa72ac9e9510
+would have updated this reference
+updating title : State of the climate: Drought Annual 2012, uri : /reference/7d32ef53-c6a3-4d06-a13d-a6df70db298e
+would have updated this reference
+updating title : Alignment of the Sun, moon and Earth will cause unusually high tides, uri : /reference/84d70c9a-24dc-4340-b04f-a43c0475241d
+would have updated this reference
+updating title : NASA’s CASI building climate-resilient NASA centers, uri : /reference/8f3bf5fe-2b45-41b6-a872-1807a5c7cdc8
+would have updated this reference
+updating title : Rising groundwater may flood underground infrastructure of coastal cities, uri : /reference/a5fd7659-3d17-445f-a924-44a659bb11d1
+would have updated this reference
+updating title : State of the Coast: Sea Level Rise Impacts Transportation Infrastructure, uri : /reference/a7aa3988-9640-4750-91d5-14cefc70b26b
+would have updated this reference
+updating title : Breezy Point: Drowned, burned, but unbowed, uri : /reference/aabd4c80-7210-4358-bbcb-3a4e0aaeb4fe
+would have updated this reference
+updating title : Threatened by rising seas, Alaskans ponder where to move, uri : /reference/c1e86158-f0cf-4b7d-bc99-02fe2630e8af
+would have updated this reference
+updating title : Port Elizabeth to Open for Business. Press Release Number: 179-2012, uri : /reference/d12fb328-1cf8-4dcd-b81c-c80e614cb74c
+would have updated this reference
+updating title : Port Authority continues limited PATH service. Press release number: 189-2012, uri : /reference/e8c72664-22b6-45ee-a497-a3d2b220b839
+would have updated this reference
+updating title : Disasters and forced migration in the 21st Century, uri : /reference/e97280dd-e8b1-4695-923e-20dc2d49e97e
+would have updated this reference
+updating title : IBM and Dubuque, Iowa Partner on Smarter City Initiative, uri : /reference/fa7a54e3-90ca-45f2-a900-205867e511b2
+would have updated this reference
+updating title : Hurricane Sandy Devastates NY/NJ area passenger rail systems, uri : /reference/fadc1df6-145a-4701-8833-3d9438d09fa1
+would have updated this reference
+done
