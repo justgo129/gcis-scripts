@@ -33,9 +33,9 @@ Dry run
 
 =head1 EXAMPLES
 
-# delete a set of uris from a list
+# add a set of urls from a list
 
-./detete-uris.pl -u http://data-stage.globalchange.gov < uri_list.txt
+./add-urls.pl -u http://data-stage.globalchange.gov < url_list.txt
 
 =cut
 
