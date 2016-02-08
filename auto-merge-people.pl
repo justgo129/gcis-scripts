@@ -8,7 +8,7 @@ use v5.16;
 
 no warnings 'uninitialized';
 
-my $dry_run = 0;  # change for a dry run
+my $dry_run = 1;  # change for a dry run 0 = not dry run
 my $limit = 0;    # change to limit
 my $url = shift || usage('no url');
 $url =~ /http/ or usage("bad url: $url");
@@ -42,6 +42,12 @@ sub match {
         #say "Match for $f1 and $f2";
         return 1;
     }
+    
+    if (substr($f2,0,1) eq substr($f1,0,1)) {
+        #say "Match for $f1 and $f2";
+        return 1;
+    }
+
     #say "no dice for $f1 and $f2";
     return 0;
 }
@@ -66,7 +72,7 @@ sub pick_one {
 }
 
 sub main {
-    my $gcis = Gcis::Client->connect(url => $url);
+    my $gcis = $dry_run ? Gcis::Client->new(url => $url) : Gcis::Client->connect(url => $url);
 
     my @all = $gcis->get("/person", { all => 1});
     say "Count: ".@all;
